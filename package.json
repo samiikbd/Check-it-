@@ -11,7 +11,7 @@
     "pwa:build": "npx @pwabuilder/cli"
   },
   "dependencies": {
-    "@google/genai": "^0.1.1",
+    "@google/genai": "^2.24.0",
     "@supabase/supabase-js": "^2.39.8",
     "lucide-react": "^0.359.0",
     "react": "^18.2.0",
