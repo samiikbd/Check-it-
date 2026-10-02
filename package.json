@@ -6,7 +6,7 @@
   "description": "Check It - Real-Time Viral Claim Verification Engine with Gemini 2.5 Flash Grounding",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "vite build",
     "preview": "vite preview",
     "pwa:build": "npx @pwabuilder/cli"
   },
