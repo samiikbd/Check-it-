@@ -5,6 +5,7 @@ const INITIAL_CLAIMS: Claim[] = [
   {
     id: 'c1',
     claim_text: 'COVID-19 vaccines alter human DNA by integrating into the host genome.',
+    query: 'COVID-19 vaccines alter human DNA by integrating into the host genome.',
     input_type: 'text',
     verdict: 'FALSE',
     confidence: 97,
@@ -23,12 +24,14 @@ const INITIAL_CLAIMS: Claim[] = [
     query_hash: 'c1_covid_dna_hash',
     user_id: null,
     is_admin_overridden: false,
+    admin_override: false,
     upvotes: 42,
     created_at: new Date(Date.now() - 24 * 3600 * 1000).toISOString(),
   },
   {
     id: 'c2',
     claim_text: '2024 was officially recorded as the hottest calendar year on global historical record.',
+    query: '2024 was officially recorded as the hottest calendar year on global historical record.',
     input_type: 'text',
     verdict: 'TRUE',
     confidence: 94,
@@ -46,12 +49,14 @@ const INITIAL_CLAIMS: Claim[] = [
     query_hash: 'c2_hottest_year_hash',
     user_id: null,
     is_admin_overridden: false,
+    admin_override: false,
     upvotes: 89,
     created_at: new Date(Date.now() - 48 * 3600 * 1000).toISOString(),
   },
   {
     id: 'c3',
     claim_text: 'Video shows politician admitting to covert electoral manipulation during a live speech.',
+    query: 'Video shows politician admitting to covert electoral manipulation during a live speech.',
     input_type: 'media',
     verdict: 'MISLEADING',
     confidence: 88,
@@ -68,6 +73,7 @@ const INITIAL_CLAIMS: Claim[] = [
     query_hash: 'c3_politician_video_hash',
     user_id: null,
     is_admin_overridden: true,
+    admin_override: true,
     upvotes: 31,
     created_at: new Date(Date.now() - 52 * 3600 * 1000).toISOString(),
   }
@@ -91,7 +97,14 @@ function getStoredClaims(): Claim[] {
       localStorage.setItem(STORAGE_KEY_CLAIMS, JSON.stringify(INITIAL_CLAIMS));
       return INITIAL_CLAIMS;
     }
-    return JSON.parse(raw);
+    const parsed: Claim[] = JSON.parse(raw);
+    return parsed.map(c => ({
+      ...c,
+      query: c.query || c.claim_text,
+      claim_text: c.claim_text || c.query,
+      admin_override: c.admin_override ?? c.is_admin_overridden ?? false,
+      is_admin_overridden: c.is_admin_overridden ?? c.admin_override ?? false,
+    }));
   } catch {
     return INITIAL_CLAIMS;
   }
@@ -259,6 +272,7 @@ export async function verifyClaim(req: VerificationRequest): Promise<Claim> {
       const newClaim: Claim = {
         id: 'claim_' + Date.now(),
         claim_text: claimText || 'Analyzed Query',
+        query: claimText || 'Analyzed Query',
         input_type: req.inputType,
         verdict: geminiResult.verdict || 'UNVERIFIED',
         confidence: Math.min(100, Math.max(0, geminiResult.confidence || 85)),
@@ -268,6 +282,7 @@ export async function verifyClaim(req: VerificationRequest): Promise<Claim> {
         query_hash: hash,
         user_id: req.userId || null,
         is_admin_overridden: false,
+        admin_override: false,
         upvotes: 1,
         created_at: new Date().toISOString(),
       };
@@ -353,6 +368,7 @@ export async function verifyClaim(req: VerificationRequest): Promise<Claim> {
   const newClaim: Claim = {
     id: 'claim_' + Date.now(),
     claim_text: claimText || (req.inputType === 'media' ? 'Analyzed Media Upload' : 'Verified Web Resource'),
+    query: claimText || (req.inputType === 'media' ? 'Analyzed Media Upload' : 'Verified Web Resource'),
     input_type: req.inputType,
     verdict,
     confidence,
@@ -362,6 +378,7 @@ export async function verifyClaim(req: VerificationRequest): Promise<Claim> {
     query_hash: hash,
     user_id: req.userId || null,
     is_admin_overridden: false,
+    admin_override: false,
     upvotes: 1,
     created_at: new Date().toISOString(),
   };
@@ -386,7 +403,9 @@ export async function submitFlag(
     user_id: userId,
     user_email: userEmail,
     flag_type: flagType,
+    reason: flagType.replace('_', ' '),
     reasoning,
+    details: reasoning,
     upvotes: 0,
     created_at: new Date().toISOString(),
   };
@@ -420,7 +439,13 @@ export async function submitFlag(
 export function getStoredFlags(): CommunityFlag[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY_FLAGS);
-    return raw ? JSON.parse(raw) : [];
+    if (!raw) return [];
+    const flags: CommunityFlag[] = JSON.parse(raw);
+    return flags.map(f => ({
+      ...f,
+      reason: f.reason || (f.flag_type ? f.flag_type.replace('_', ' ') : 'Flagged'),
+      details: f.details || f.reasoning || '',
+    }));
   } catch {
     return [];
   }
@@ -428,26 +453,53 @@ export function getStoredFlags(): CommunityFlag[] {
 
 export async function overrideClaimVerdict(
   claimId: string,
-  adminId: string,
-  adminEmail: string,
-  newVerdict: VerdictType,
-  newConfidence: number,
-  newSummary: string,
-  newKeyFacts: string[],
-  reason: string
+  updatesOrAdminId: { verdict: VerdictType; confidence: number; summary: string; key_facts: string[] } | string,
+  adminIdOrAdminEmail: string,
+  adminEmailOrNewVerdict?: string | VerdictType,
+  overrideReasonOrConfidence?: string | number,
+  newSummary?: string,
+  newKeyFacts?: string[],
+  reason?: string
 ): Promise<Claim> {
   const claims = getStoredClaims();
   const index = claims.findIndex(c => c.id === claimId);
   if (index === -1) throw new Error('Claim not found.');
+
+  let newVerdict: VerdictType;
+  let newConfidence: number;
+  let newSummaryText: string;
+  let newFacts: string[];
+  let adminId: string;
+  let adminEmail: string;
+  let justificationReason: string;
+
+  if (typeof updatesOrAdminId === 'object') {
+    newVerdict = updatesOrAdminId.verdict;
+    newConfidence = updatesOrAdminId.confidence;
+    newSummaryText = updatesOrAdminId.summary;
+    newFacts = updatesOrAdminId.key_facts;
+    adminId = adminIdOrAdminEmail;
+    adminEmail = (adminEmailOrNewVerdict as string) || 'editor@checkit.ai';
+    justificationReason = (overrideReasonOrConfidence as string) || '';
+  } else {
+    adminId = updatesOrAdminId;
+    adminEmail = adminIdOrAdminEmail;
+    newVerdict = adminEmailOrNewVerdict as VerdictType;
+    newConfidence = overrideReasonOrConfidence as number;
+    newSummaryText = newSummary || '';
+    newFacts = newKeyFacts || [];
+    justificationReason = reason || '';
+  }
 
   const oldVerdict = claims[index].verdict;
   const updatedClaim: Claim = {
     ...claims[index],
     verdict: newVerdict,
     confidence: newConfidence,
-    summary: newSummary,
-    key_facts: newKeyFacts,
+    summary: newSummaryText,
+    key_facts: newFacts,
     is_admin_overridden: true,
+    admin_override: true,
   };
 
   claims[index] = updatedClaim;
@@ -460,8 +512,9 @@ export async function overrideClaimVerdict(
     admin_id: adminId,
     admin_email: adminEmail,
     old_verdict: oldVerdict,
+    previous_verdict: oldVerdict,
     new_verdict: newVerdict,
-    reason,
+    reason: justificationReason,
     created_at: new Date().toISOString(),
   };
 
@@ -481,8 +534,8 @@ export async function overrideClaimVerdict(
         .update({
           verdict: newVerdict,
           confidence: newConfidence,
-          summary: newSummary,
-          key_facts: newKeyFacts,
+          summary: newSummaryText,
+          key_facts: newFacts,
           is_admin_overridden: true,
         })
         .eq('id', claimId);
@@ -492,7 +545,7 @@ export async function overrideClaimVerdict(
         admin_id: adminId,
         old_verdict: oldVerdict,
         new_verdict: newVerdict,
-        reason,
+        reason: justificationReason,
       });
     } catch (e) {
       console.warn('Admin override fallback:', e);
@@ -505,7 +558,7 @@ export async function overrideClaimVerdict(
 export function getStoredAuditLogs(): AuditLog[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY_AUDITS);
-    return raw ? JSON.parse(raw) : [
+    const list: AuditLog[] = raw ? JSON.parse(raw) : [
       {
         id: 'audit_init_1',
         claim_id: 'c3',
@@ -513,11 +566,17 @@ export function getStoredAuditLogs(): AuditLog[] {
         admin_id: 'adm_1',
         admin_email: 'editor@checkit.ai',
         old_verdict: 'FALSE',
+        previous_verdict: 'FALSE',
         new_verdict: 'MISLEADING',
         reason: 'Adjusted from FALSE to MISLEADING: clip contains genuine speech excerpts but was heavily truncated to obscure academic context.',
         created_at: new Date(Date.now() - 36 * 3600 * 1000).toISOString(),
       }
     ];
+    return list.map(l => ({
+      ...l,
+      previous_verdict: l.previous_verdict || l.old_verdict,
+      old_verdict: l.old_verdict || l.previous_verdict,
+    }));
   } catch {
     return [];
   }

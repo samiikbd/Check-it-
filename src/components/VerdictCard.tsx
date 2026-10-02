@@ -21,9 +21,10 @@ import { FlagModal } from './FlagModal';
 interface VerdictCardProps {
   claim: Claim;
   onFlagSubmitted?: (flag: CommunityFlag) => void;
+  onReset?: () => void;
 }
 
-export const VerdictCard: React.FC<VerdictCardProps> = ({ claim, onFlagSubmitted }) => {
+export const VerdictCard: React.FC<VerdictCardProps> = ({ claim, onFlagSubmitted, onReset }) => {
   const [upvotes, setUpvotes] = useState(claim.upvotes || 0);
   const [hasUpvoted, setHasUpvoted] = useState(false);
   const [isFlagModalOpen, setIsFlagModalOpen] = useState(false);
