@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/shield.svg" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#0b0f19" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Check It" />
+    <meta name="application-name" content="Check It" />
+    <meta name="description" content="Check It — Real-time zero-hallucination viral claim verification engine powered by Gemini 2.5 Flash and Google Search Grounding." />
+    <link rel="manifest" href="/manifest.json" />
+    <title>Check It - AI Verification Engine</title>
+  </head>
+  <body class="bg-[#0b0f19] text-slate-100 min-h-screen">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+    <script>
+      // Service worker registration for PWA and PWABuilder compatibility
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js')
+            .then((reg) => console.log('Check It SW registered successfully:', reg.scope))
+            .catch((err) => console.warn('Check It SW registration skipped:', err));
+        });
+      }
+    </script>
+  </body>
+</html>
