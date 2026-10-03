@@ -1,32 +1,28 @@
 {
-  "name": "Check It - AI Verification Engine",
-  "short_name": "Check It",
-  "id": "/",
+  "name": "Check it",
+  "short_name": "CIA",
+  "description": "Ai Powered Fact &amp; News Checking System",
   "start_url": "/",
-  "scope": "/",
   "display": "standalone",
-  "orientation": "portrait-primary",
-  "background_color": "#0b0f19",
-  "theme_color": "#0b0f19",
-  "description": "Zero-hallucination real-time viral claim verification powered by Gemini 2.5 Flash and Google Search Grounding.",
-  "lang": "en-US",
-  "dir": "ltr",
-  "categories": ["news", "utilities", "productivity"],
+  "background_color": "#000000",
+  "theme_color": "#000000",
   "icons": [
     {
-      "src": "/shield.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any"
+      "src": "https://ibb.co.com/bR6HNJ5j",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "https://ibb.co.com/vCr9D35K",
+      "type": "image/png",
+      "sizes": "512x512"
     }
   ],
-  "share_target": {
-    "action": "/",
-    "method": "GET",
-    "params": {
-      "title": "title",
-      "text": "text",
-      "url": "url"
-    }
-  }
+  "id": "com.checkit.app",
+  "lang": "en",
+  "orientation": "portrait",
+  "scope": "/",
+  "categories": [
+    "social"
+  ]
 }
